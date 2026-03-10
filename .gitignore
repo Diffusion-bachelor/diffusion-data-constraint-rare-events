@@ -2,6 +2,8 @@ __pycache__
 
 .devcontainer
 
+notebooks/vocabulary/gpt2_tokenizer
+
 # Distribution / packaging
 build/
 dist/
