@@ -284,9 +284,13 @@ def main(args: argparse.Namespace) -> None:
     ckpt_dir = os.path.join("checkpoints", args.model_type)
     os.makedirs(ckpt_dir, exist_ok=True)
     best_ckpt_path = os.path.join(ckpt_dir, "tiny_gpt2_best.pt")
+    table_path = os.path.join(ckpt_dir, "training_table.txt")
     epoch_durations: list[float] = []
-    print(f"\n{'Epoch':>6}  {'train_loss':>10}  {'val_loss':>9}  {'val_ppl':>8}  {'sec':>7}")
-    print("-" * 55)
+    table_header = f"{'Epoch':>6}  {'train_loss':>10}  {'val_loss':>9}  {'val_ppl':>8}  {'sec':>7}"
+    table_sep = "-" * 55
+    table_lines = [table_header, table_sep]
+    print(f"\n{table_header}")
+    print(table_sep)
 
     for epoch in range(1, args.epochs + 1):
         epoch_start_time = time.perf_counter()
@@ -347,9 +351,11 @@ def main(args: argparse.Namespace) -> None:
         epoch_durations.append(epoch_seconds)
 
         marker = " *" if val_loss < best_val_loss else ""
-        print(
+        row_line = (
             f"{epoch:6d}  {train_loss:10.4f}  {val_loss:9.4f}  {val_ppl:8.1f}  {epoch_seconds:7.2f}{marker}"
         )
+        table_lines.append(row_line)
+        print(row_line)
 
         if args.save_each_epoch:
             torch.save(
@@ -379,11 +385,16 @@ def main(args: argparse.Namespace) -> None:
             )
 
     avg_epoch_seconds = sum(epoch_durations) / len(epoch_durations)
+    table_lines.append(table_sep)
 
-    print("-" * 55)
+    with open(table_path, "w") as f:
+        f.write("\n".join(table_lines) + "\n")
+
+    print(table_sep)
     print(f"Best validation perplexity : {math.exp(best_val_loss):.2f}")
     print(f"Average epoch time (sec)  : {avg_epoch_seconds:.2f}")
     print(f"Best checkpoint saved to   : {best_ckpt_path}")
+    print(f"Training table saved to    : {table_path}")
     if args.save_each_epoch:
         print(f"Per-epoch checkpoints      : {ckpt_dir}/tiny_gpt2_epoch_###.pt")
 
