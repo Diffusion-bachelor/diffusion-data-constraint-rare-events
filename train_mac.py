@@ -24,6 +24,7 @@ import json
 import logging
 import math
 import os
+import time
 
 import torch
 import torch.nn as nn
@@ -280,10 +281,15 @@ def main(args: argparse.Namespace) -> None:
 
     # ── Training loop ─────────────────────────────────────────────────────────
     best_val_loss = float("inf")
-    print(f"\n{'Epoch':>6}  {'train_loss':>10}  {'val_loss':>9}  {'val_ppl':>8}")
-    print("-" * 44)
+    ckpt_dir = os.path.join("checkpoints", args.model_type)
+    os.makedirs(ckpt_dir, exist_ok=True)
+    best_ckpt_path = os.path.join(ckpt_dir, "tiny_gpt2_best.pt")
+    epoch_durations: list[float] = []
+    print(f"\n{'Epoch':>6}  {'train_loss':>10}  {'val_loss':>9}  {'val_ppl':>8}  {'sec':>7}")
+    print("-" * 55)
 
     for epoch in range(1, args.epochs + 1):
+        epoch_start_time = time.perf_counter()
         model.train()
         total_loss, total_tokens = 0.0, 0
 
@@ -337,15 +343,31 @@ def main(args: argparse.Namespace) -> None:
                 alpha_bar,
                 config.vocab_size,
             )
+        epoch_seconds = time.perf_counter() - epoch_start_time
+        epoch_durations.append(epoch_seconds)
 
         marker = " *" if val_loss < best_val_loss else ""
         print(
-            f"{epoch:6d}  {train_loss:10.4f}  {val_loss:9.4f}  {val_ppl:8.1f}{marker}"
+            f"{epoch:6d}  {train_loss:10.4f}  {val_loss:9.4f}  {val_ppl:8.1f}  {epoch_seconds:7.2f}{marker}"
         )
+
+        if args.save_each_epoch:
+            torch.save(
+                {
+                    "model_state": model.state_dict(),
+                    "config": config,
+                    "model_type": args.model_type,
+                    "diffusion_steps": args.diffusion_steps,
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                    "val_ppl": val_ppl,
+                },
+                os.path.join(ckpt_dir, f"tiny_gpt2_epoch_{epoch:03d}.pt"),
+            )
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            os.makedirs("checkpoints", exist_ok=True)
             torch.save(
                 {
                     "model_state": model.state_dict(),
@@ -353,12 +375,17 @@ def main(args: argparse.Namespace) -> None:
                     "model_type": args.model_type,
                     "diffusion_steps": args.diffusion_steps,
                 },
-                f"checkpoints/tiny_gpt2_best_{args.model_type}.pt",
+                best_ckpt_path,
             )
 
-    print("-" * 44)
+    avg_epoch_seconds = sum(epoch_durations) / len(epoch_durations)
+
+    print("-" * 55)
     print(f"Best validation perplexity : {math.exp(best_val_loss):.2f}")
-    print(f"Checkpoint saved to        : checkpoints/tiny_gpt2_best_{args.model_type}.pt")
+    print(f"Average epoch time (sec)  : {avg_epoch_seconds:.2f}")
+    print(f"Best checkpoint saved to   : {best_ckpt_path}")
+    if args.save_each_epoch:
+        print(f"Per-epoch checkpoints      : {ckpt_dir}/tiny_gpt2_epoch_###.pt")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -393,6 +420,11 @@ if __name__ == "__main__":
         type=int,
         default=100,
         help="Number of diffusion timesteps when --model-type diffusion.",
+    )
+    parser.add_argument(
+        "--save-each-epoch",
+        action="store_true",
+        help="Save an additional checkpoint file after every epoch.",
     )
 
     # ── Model size ────────────────────────────────────────────────────────────
