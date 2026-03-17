@@ -11,7 +11,6 @@ dist/
 data/
 # binaries
 *.so
-
 # tmp files
 *.swp
 
@@ -25,3 +24,6 @@ logs
 
 # Data folder
 bookcorpus_data/
+
+# Pictures
+*.png
