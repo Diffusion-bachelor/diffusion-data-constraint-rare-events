@@ -409,7 +409,7 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--data", default="data/c4_sample.jsonl",
+        "--data", default="data/c4_sample_1k.jsonl",
         help="Path to a JSONL file with {'text': '...'} entries.",
     )
     parser.add_argument("--block-size", type=int, default=128,
